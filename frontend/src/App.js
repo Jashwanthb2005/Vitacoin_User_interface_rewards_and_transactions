@@ -9,6 +9,7 @@ import Transactions from './pages/Transactions/Transactions';
 import Badges from './pages/Badges/Badges';
 import Leaderboard from './pages/Leaderboard/Leaderboard';
 import Profile from './pages/Profile/Profile';
+import Challenges from './pages/Challenges/Challenges';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 
 // Protected Route Component

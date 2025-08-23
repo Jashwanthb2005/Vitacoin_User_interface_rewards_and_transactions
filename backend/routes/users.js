@@ -124,6 +124,54 @@ router.get('/', protect, adminOrModerator, async (req, res) => {
   }
 });
 
+// @desc    Search users for transfer
+// @route   GET /api/users/search
+// @access  Private
+router.get('/search', protect, async (req, res) => {
+  try {
+    const { q, limit = 10 } = req.query;
+
+    if (!q || q.trim().length < 2) {
+      return res.status(400).json({ 
+        error: 'Search query must be at least 2 characters long' 
+      });
+    }
+
+    const searchQuery = {
+      isActive: true,
+      _id: { $ne: req.user._id }, // Exclude current user
+      $or: [
+        { username: { $regex: q.trim(), $options: 'i' } },
+        { firstName: { $regex: q.trim(), $options: 'i' } },
+        { lastName: { $regex: q.trim(), $options: 'i' } },
+        { email: { $regex: q.trim(), $options: 'i' } }
+      ]
+    };
+
+    const users = await User.find(searchQuery)
+      .select('username firstName lastName email coinBalance profilePicture')
+      .limit(parseInt(limit))
+      .sort({ username: 1 });
+
+    res.json({
+      users: users.map(user => ({
+        _id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+        coinBalance: user.coinBalance,
+        profilePicture: user.profilePicture
+      }))
+    });
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({ 
+      error: 'Server error searching users',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // @desc    Get user by ID (Admin/Moderator only)
 // @route   GET /api/users/:id
 // @access  Private (Admin/Moderator)

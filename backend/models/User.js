@@ -80,7 +80,7 @@ userSchema.virtual('fullName').get(function() {
 
 // Virtual for badge count
 userSchema.virtual('badgeCount').get(function() {
-  return this.badges.length;
+  return this.badges ? this.badges.length : 0;
 });
 
 // Index for leaderboard queries

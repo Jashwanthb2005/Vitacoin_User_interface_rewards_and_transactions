@@ -12,7 +12,8 @@ import {
   FiMenu,
   FiX,
   FiWifi,
-  FiWifiOff
+  FiWifiOff,
+  FiPlay
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
@@ -27,7 +28,8 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: FiHome },
+    { name: 'Challenges', href: '/challenges', icon: FiPlay },
+    { name: 'Challenges', href: '/challenges', icon: FiPlay },
     { name: 'Transactions', href: '/transactions', icon: FiDollarSign },
     { name: 'Badges', href: '/badges', icon: FiAward },
     { name: 'Leaderboard', href: '/leaderboard', icon: FiTrendingUp },

@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const { protect, adminOrModerator } = require('../middleware/auth');
@@ -138,18 +139,23 @@ router.post('/', protect, adminOrModerator, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Create transaction
-    const transaction = await Transaction.createTransaction(userId, {
+    // Create transaction with proper balance calculation
+    const transaction = new Transaction({
+      user: userId,
       type,
       amount: parseInt(amount),
       description,
       category: category || 'admin_reward',
+      balanceBefore: user.coinBalance,
+      balanceAfter: user.coinBalance + parseInt(amount),
       metadata: {
         ...metadata,
         adminId: req.user._id,
         reason: description
       }
     });
+
+    await transaction.save();
 
     // Update user balance
     if (amount > 0) {
@@ -274,6 +280,179 @@ router.get('/types', protect, async (req, res) => {
     console.error('Types fetch error:', error);
     res.status(500).json({ 
       error: 'Server error fetching types',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Transfer coins between users
+// @route   POST /api/transactions/transfer
+// @access  Private
+router.post('/transfer', protect, async (req, res) => {
+  try {
+    const { recipientId, amount, description } = req.body;
+
+    // Validate input
+    if (!recipientId || !amount || !description) {
+      return res.status(400).json({ 
+        error: 'Recipient ID, amount, and description are required' 
+      });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ 
+        error: 'Transfer amount must be positive' 
+      });
+    }
+
+    // Check if sender is trying to send to themselves
+    if (recipientId === req.user._id.toString()) {
+      return res.status(400).json({ 
+        error: 'Cannot transfer coins to yourself' 
+      });
+    }
+
+    // Find sender and recipient
+    const sender = await User.findById(req.user._id);
+    const recipient = await User.findById(recipientId);
+
+    if (!sender) {
+      return res.status(404).json({ error: 'Sender not found' });
+    }
+
+    if (!recipient) {
+      return res.status(404).json({ error: 'Recipient not found' });
+    }
+
+    // Check if sender has sufficient balance
+    if (sender.coinBalance < amount) {
+      return res.status(400).json({ 
+        error: 'Insufficient coin balance for transfer' 
+      });
+    }
+
+    // Use database transaction to ensure atomicity
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // Create sender's transaction (deduction)
+      const senderTransaction = new Transaction({
+        user: sender._id,
+        type: 'transfer',
+        amount: -amount,
+        description: `Sent to ${recipient.username}: ${description}`,
+        category: 'other',
+        balanceBefore: sender.coinBalance,
+        balanceAfter: sender.coinBalance - amount,
+        metadata: {
+          recipientId: recipient._id,
+          recipientUsername: recipient.username,
+          reason: description
+        }
+      });
+
+      // Create recipient's transaction (addition)
+      const recipientTransaction = new Transaction({
+        user: recipient._id,
+        type: 'transfer',
+        amount: amount,
+        description: `Received from ${sender.username}: ${description}`,
+        category: 'other',
+        balanceBefore: recipient.coinBalance,
+        balanceAfter: recipient.coinBalance + amount,
+        metadata: {
+          senderId: sender._id,
+          senderUsername: sender.username,
+          reason: description
+        }
+      });
+
+      // Update balances
+      sender.coinBalance -= amount;
+      recipient.coinBalance += amount;
+
+      // Save all changes
+      await senderTransaction.save({ session });
+      await recipientTransaction.save({ session });
+      await sender.save({ session });
+      await recipient.save({ session });
+
+      // Commit transaction
+      await session.commitTransaction();
+
+      res.status(201).json({
+        success: true,
+        message: `Successfully transferred ${amount} coins to ${recipient.username}`,
+        transfer: {
+          amount,
+          recipient: {
+            _id: recipient._id,
+            username: recipient.username,
+            fullName: recipient.fullName
+          },
+          senderBalance: sender.coinBalance,
+          recipientBalance: recipient.coinBalance
+        }
+      });
+
+    } catch (error) {
+      // Rollback transaction on error
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+
+  } catch (error) {
+    console.error('Transfer error:', error);
+    res.status(500).json({ 
+      error: 'Server error processing transfer',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Get transfer history
+// @route   GET /api/transactions/transfers
+// @access  Private
+router.get('/transfers', protect, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+
+    const transfers = await Transaction.find({
+      user: req.user._id,
+      type: 'transfer',
+      isVisible: true
+    })
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit))
+    .populate('metadata.senderId', 'username firstName lastName')
+    .populate('metadata.recipientId', 'username firstName lastName');
+
+    // Get total count for pagination
+    const totalCount = await Transaction.countDocuments({
+      user: req.user._id,
+      type: 'transfer',
+      isVisible: true
+    });
+
+    res.json({
+      transfers,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalCount,
+        pages: Math.ceil(totalCount / parseInt(limit)),
+        hasNext: parseInt(page) < Math.ceil(totalCount / parseInt(limit)),
+        hasPrev: parseInt(page) > 1
+      }
+    });
+  } catch (error) {
+    console.error('Transfer history error:', error);
+    res.status(500).json({ 
+      error: 'Server error fetching transfer history',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

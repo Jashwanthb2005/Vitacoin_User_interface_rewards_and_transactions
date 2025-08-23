@@ -161,7 +161,7 @@ transactionSchema.statics.getUserHistory = function(userId, options = {}) {
 // Static method to get transaction statistics
 transactionSchema.statics.getUserStats = function(userId, startDate, endDate) {
   const matchStage = {
-    user: mongoose.Types.ObjectId(userId),
+    user: new mongoose.Types.ObjectId(userId),
     isVisible: true
   };
 
