@@ -96,7 +96,7 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-secondary-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50 py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -109,7 +109,7 @@ const Register = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="mx-auto h-16 w-16 bg-gradient-to-r from-primary-600 to-secondary-600 rounded-full flex items-center justify-center mb-6"
+            className="mx-auto h-16 w-16 bg-gradient-to-r from-primary-600 to-secondary-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg"
           >
             <span className="text-white font-bold text-2xl">V</span>
           </motion.div>
@@ -133,14 +133,12 @@ const Register = () => {
           <div className="space-y-4">
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="form-group">
+                <label htmlFor="firstName" className="form-label">
                   First name
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiUser className="h-5 w-5 text-gray-400" />
-                  </div>
+                <div className="input-group">
+                  <FiUser className="input-icon" />
                   <input
                     id="firstName"
                     name="firstName"
@@ -149,7 +147,7 @@ const Register = () => {
                     required
                     value={formData.firstName}
                     onChange={handleChange}
-                    className={`input pl-10 ${errors.firstName ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
+                    className={`input input-with-icon ${errors.firstName ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
                     placeholder="First name"
                   />
                 </div>
@@ -157,15 +155,15 @@ const Register = () => {
                   <motion.p
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-1 text-sm text-danger-600"
+                    className="form-error"
                   >
                     {errors.firstName}
                   </motion.p>
                 )}
               </div>
 
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="form-group">
+                <label htmlFor="lastName" className="form-label">
                   Last name
                 </label>
                 <input
@@ -183,7 +181,7 @@ const Register = () => {
                   <motion.p
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-1 text-sm text-danger-600"
+                    className="form-error"
                   >
                     {errors.lastName}
                   </motion.p>
@@ -192,8 +190,8 @@ const Register = () => {
             </div>
 
             {/* Username Field */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="form-group">
+              <label htmlFor="username" className="form-label">
                 Username
               </label>
               <input
@@ -211,7 +209,7 @@ const Register = () => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-1 text-sm text-danger-600"
+                  className="form-error"
                 >
                   {errors.username}
                 </motion.p>
@@ -219,14 +217,12 @@ const Register = () => {
             </div>
 
             {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
                 Email address
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiMail className="h-5 w-5 text-gray-400" />
-                </div>
+              <div className="input-group">
+                <FiMail className="input-icon" />
                 <input
                   id="email"
                   name="email"
@@ -235,7 +231,7 @@ const Register = () => {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className={`input pl-10 ${errors.email ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
+                  className={`input input-with-icon ${errors.email ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
                   placeholder="Enter your email"
                 />
               </div>
@@ -243,7 +239,7 @@ const Register = () => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-1 text-sm text-danger-600"
+                  className="form-error"
                 >
                   {errors.email}
                 </motion.p>
@@ -251,14 +247,12 @@ const Register = () => {
             </div>
 
             {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">
                 Password
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiLock className="h-5 w-5 text-gray-400" />
-                </div>
+              <div className="input-group">
+                <FiLock className="input-icon" />
                 <input
                   id="password"
                   name="password"
@@ -267,18 +261,18 @@ const Register = () => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className={`input pl-10 pr-10 ${errors.password ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
+                  className={`input input-with-icon pr-12 ${errors.password ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
                   placeholder="Create a password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 p-1 rounded-lg hover:bg-gray-100 transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <FiEyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <FiEyeOff className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                   ) : (
-                    <FiEye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <FiEye className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                   )}
                 </button>
               </div>
@@ -286,7 +280,7 @@ const Register = () => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-1 text-sm text-danger-600"
+                  className="form-error"
                 >
                   {errors.password}
                 </motion.p>
@@ -294,14 +288,12 @@ const Register = () => {
             </div>
 
             {/* Confirm Password Field */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="form-group">
+              <label htmlFor="confirmPassword" className="form-label">
                 Confirm password
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiLock className="h-5 w-5 text-gray-400" />
-                </div>
+              <div className="input-group">
+                <FiLock className="input-icon" />
                 <input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -310,18 +302,18 @@ const Register = () => {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className={`input pl-10 pr-10 ${errors.confirmPassword ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
+                  className={`input input-with-icon pr-12 ${errors.confirmPassword ? 'border-danger-500 focus:border-danger-500 focus:ring-danger-500' : ''}`}
                   placeholder="Confirm your password"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 p-1 rounded-lg hover:bg-gray-100 transition-colors"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <FiEyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <FiEyeOff className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                   ) : (
-                    <FiEye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <FiEye className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                   )}
                 </button>
               </div>
@@ -329,7 +321,7 @@ const Register = () => {
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-1 text-sm text-danger-600"
+                  className="form-error"
                 >
                   {errors.confirmPassword}
                 </motion.p>
@@ -343,7 +335,7 @@ const Register = () => {
             whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-700 hover:to-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-700 hover:to-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
           >
             {loading ? (
               <LoadingSpinner size="sm" className="text-white" />
@@ -358,13 +350,41 @@ const Register = () => {
               Already have an account?{' '}
               <Link
                 to="/login"
-                className="font-medium text-primary-600 hover:text-primary-500 transition-colors duration-200"
+                className="font-semibold text-primary-600 hover:text-primary-500 transition-colors duration-200"
               >
                 Sign in
               </Link>
             </p>
           </div>
         </motion.form>
+
+        {/* Features Preview */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200"
+        >
+          <h3 className="text-sm font-semibold text-green-900 mb-3">What you'll get:</h3>
+          <div className="space-y-2 text-xs text-green-700">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Real-time coin balance tracking</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Earn badges and achievements</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Compete on leaderboards</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Detailed transaction history</span>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   );
