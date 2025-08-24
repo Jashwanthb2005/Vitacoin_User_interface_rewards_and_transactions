@@ -13,7 +13,9 @@ import {
   FiX,
   FiWifi,
   FiWifiOff,
-  FiPlay
+  FiPlay,
+  FiTarget,
+  FiUsers
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
@@ -27,9 +29,16 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navigation = [
-    { name: 'Challenges', href: '/challenges', icon: FiPlay },
-    { name: 'Challenges', href: '/challenges', icon: FiPlay },
+  const navigation = user?.role === 'admin' ? [
+    { name: 'Admin Dashboard', href: '/admin', icon: FiTrendingUp },
+    { name: 'Challenges', href: '/admin/challenges', icon: FiTarget },
+    { name: 'Games', href: '/admin/games', icon: FiPlay },
+    { name: 'Users', href: '/admin/users', icon: FiUsers },
+    { name: 'Settings', href: '/admin/settings', icon: FiSettings },
+  ] : [
+    { name: 'Dashboard', href: '/dashboard', icon: FiTrendingUp },
+    { name: 'Play Games', href: '/play-games', icon: FiPlay },
+    { name: 'Challenges', href: '/challenges', icon: FiTarget },
     { name: 'Transactions', href: '/transactions', icon: FiDollarSign },
     { name: 'Badges', href: '/badges', icon: FiAward },
     { name: 'Leaderboard', href: '/leaderboard', icon: FiTrendingUp },

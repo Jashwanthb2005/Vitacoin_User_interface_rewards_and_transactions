@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FiUser, FiMail, FiLock, FiSave, FiEdit3 } from 'react-icons/fi';
+import { FiUser, FiMail, FiLock, FiSave, FiEdit3, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import CoinDisplay from '../../components/UI/CoinDisplay';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 
 const Profile = () => {
-  const { user, updateProfile, changePassword } = useAuth();
+  const { user, updateProfile, changePassword, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -71,6 +73,13 @@ const Profile = () => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
+      navigate('/login');
     }
   };
 
@@ -146,6 +155,15 @@ const Profile = () => {
                 </button>
               );
             })}
+            
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 text-red-600 hover:text-red-700 hover:bg-red-50 ml-auto"
+            >
+              <FiLogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
 

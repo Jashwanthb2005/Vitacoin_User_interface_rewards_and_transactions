@@ -46,6 +46,26 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// @desc    Get active challenges for users
+// @route   GET /api/challenges/active
+// @access  Private
+router.get('/active', protect, async (req, res) => {
+  try {
+    const challenges = await Challenge.find({ isActive: true })
+      .populate('gameId', 'name thumbnail category')
+      .populate('rewards.badgeId', 'name icon')
+      .sort({ createdAt: -1 });
+
+    res.json(challenges);
+  } catch (error) {
+    console.error('Active challenges fetch error:', error);
+    res.status(500).json({ 
+      error: 'Server error fetching active challenges',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // @desc    Get challenge by ID
 // @route   GET /api/challenges/:id
 // @access  Private

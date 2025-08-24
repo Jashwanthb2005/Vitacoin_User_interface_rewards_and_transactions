@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiTrendingUp, FiAward, FiDollarSign, FiActivity, FiPlay, FiMinus } from 'react-icons/fi';
+import { FiTrendingUp, FiAward, FiDollarSign, FiActivity, FiPlay, FiMinus, FiLogOut } from 'react-icons/fi';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSocket } from '../../contexts/SocketContext';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import CoinDisplay from '../../components/UI/CoinDisplay';
@@ -12,8 +12,9 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { emit } = useSocket();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
@@ -91,14 +92,28 @@ const Dashboard = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="text-center"
+        className="flex justify-between items-center"
       >
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">
-          Welcome back, {user?.firstName}! 👋
-        </h1>
-        <p className="text-lg text-gray-600">
-          Here's what's happening with your Vitacoin account
-        </p>
+        <div className="text-center flex-1">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Welcome back, {user?.firstName}! 👋
+          </h1>
+          <p className="text-lg text-gray-600">
+            Here's what's happening with your Vitacoin account
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            if (window.confirm('Are you sure you want to logout?')) {
+              logout();
+              navigate('/login');
+            }
+          }}
+          className="btn btn-outline btn-error"
+        >
+          <FiLogOut className="w-4 h-4 mr-2" />
+          Logout
+        </button>
       </motion.div>
 
       {/* Stats Cards */}
@@ -145,41 +160,44 @@ const Dashboard = () => {
         </div>
       </motion.div>
 
-      {/* Quick Actions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="card"
-      >
-        <div className="card-header">
-          <h2 className="text-xl font-bold text-gray-900">Earn Coins</h2>
-          <p className="text-gray-600">Complete challenges and play games to earn coins</p>
-        </div>
-        <div className="card-body">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Link to="/challenges" className="flex-1">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="btn-success w-full"
-              >
-                <FiPlay className="w-5 h-5 mr-2" />
-                Play Games
-              </motion.button>
-            </Link>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleQuickDeduct}
-              className="btn-danger flex-1"
-            >
-              <FiMinus className="w-5 h-5 mr-2" />
-              Quick Deduct
-            </motion.button>
+      {/* Quick Actions - Only for regular users */}
+      {user?.role !== 'admin' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="card"
+        >
+          <div className="card-header">
+            <h2 className="text-xl font-bold text-gray-900">Earn Coins</h2>
+            <p className="text-gray-600">Complete challenges and play games to earn coins</p>
           </div>
-        </div>
-      </motion.div>
+          <div className="card-body">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link to="/play-games" className="flex-1">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="btn-success w-full"
+                >
+                  <FiPlay className="w-5 h-5 mr-2" />
+                  Play Games
+                </motion.button>
+              </Link>
+              <Link to="/challenges" className="flex-1">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="btn-primary w-full"
+                >
+                  <FiAward className="w-5 h-5 mr-2" />
+                  View Challenges
+                </motion.button>
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Recent Transactions */}
       <motion.div

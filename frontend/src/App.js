@@ -10,6 +10,8 @@ import Badges from './pages/Badges/Badges';
 import Leaderboard from './pages/Leaderboard/Leaderboard';
 import Profile from './pages/Profile/Profile';
 import Challenges from './pages/Challenges/Challenges';
+import PlayGames from './pages/Games/PlayGames';
+import AdminDashboard from './pages/Admin/AdminDashboard';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 
 // Protected Route Component
@@ -127,6 +129,36 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Profile />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/challenges" 
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Challenges />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/play-games" 
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <PlayGames />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <AdminDashboard />
               </Layout>
             </ProtectedRoute>
           } 

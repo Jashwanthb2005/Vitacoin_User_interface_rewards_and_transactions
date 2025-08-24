@@ -15,6 +15,8 @@ const badgeRoutes = require('./routes/badges');
 const leaderboardRoutes = require('./routes/leaderboard');
 const gameRoutes = require('./routes/games');
 const challengeRoutes = require('./routes/challenges');
+const adminRoutes = require('./routes/admin');
+const adminTaskRoutes = require('./routes/adminTasks');
 
 const { authenticateSocket } = require('./middleware/auth');
 const { setupSocketHandlers } = require('./socket/socketHandlers');
@@ -72,6 +74,8 @@ app.use('/api/badges', badgeRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/challenges', challengeRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/admin/tasks', adminTaskRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -21,6 +21,27 @@ A modern, real-time user dashboard for tracking rewards, transactions, and achie
 - **Rate Limiting** - API protection against abuse
 - **Error Handling** - Comprehensive error management
 
+### Admin Interface
+- **Dashboard Overview**: View system statistics, active challenges, games, and user counts
+- **Task Management**: Create and manage game-based tasks with rewards
+  - Game score-based tasks (achieve specific scores)
+  - Game win tasks (complete games successfully)
+  - Daily challenges and achievements
+  - Set coin rewards, experience points, and badge rewards
+  - Track task completion statistics and user performance
+- **Challenge Management**: Activate/deactivate challenges, view completion statistics
+- **Game Management**: Toggle game availability, monitor usage statistics
+- **User Management**: View user details, manage user accounts, track task completions
+- **Settings**: Configure system parameters and preferences
+
+### Enhanced Leaderboard System
+- **Overall Rankings**: Sort by coins, experience, tasks completed, or badges earned
+- **Daily Leaderboard**: Track daily performance with date selection
+- **Weekly Leaderboard**: View weekly rankings with week selection
+- **Monthly Leaderboard**: Monthly performance tracking with month selection
+- **Game-Specific Rankings**: Leaderboards for individual games
+- **User Statistics**: Detailed user performance metrics and rankings
+
 ## 🛠️ Technology Stack
 
 ### Backend
@@ -164,6 +185,13 @@ npm start
 vitacoin/
 ├── backend/                 # Backend server
 │   ├── models/             # MongoDB models
+│   │   ├── Badge.js        # Badge model
+│   │   ├── Challenge.js    # Challenge model
+│   │   ├── Game.js         # Game model
+│   │   ├── Task.js         # Task model
+│   │   ├── TaskCompletion.js # Task completion tracking
+│   │   ├── Transaction.js  # Transaction model
+│   │   └── User.js         # User model
 │   ├── routes/             # API routes
 │   ├── middleware/         # Custom middleware
 │   ├── socket/             # Socket.IO handlers
@@ -202,8 +230,22 @@ vitacoin/
 - `POST /api/badges/:id/award` - Award badge (Admin)
 
 ### Leaderboard
-- `GET /api/leaderboard` - Get leaderboard
-- `GET /api/leaderboard/stats` - Get leaderboard statistics
+- `GET /api/leaderboard` - Get overall leaderboard with sorting options
+- `GET /api/leaderboard/daily` - Get daily leaderboard with date selection
+- `GET /api/leaderboard/weekly` - Get weekly leaderboard with week selection
+- `GET /api/leaderboard/monthly` - Get monthly leaderboard with month selection
+- `GET /api/leaderboard/game/:gameId` - Get game-specific leaderboard
+- `GET /api/leaderboard/user/:userId` - Get user ranking and statistics
+
+### Admin Tasks
+- `GET /api/admin/tasks` - Get all tasks with completion statistics
+- `POST /api/admin/tasks` - Create new task
+- `PUT /api/admin/tasks/:id` - Update task
+- `PUT /api/admin/tasks/:id/toggle` - Toggle task status
+- `DELETE /api/admin/tasks/:id` - Delete task
+- `GET /api/admin/tasks/:id/completions` - Get task completion details
+- `GET /api/admin/tasks/user/:userId` - Get user task completion statistics
+- `GET /api/admin/tasks/analytics/overview` - Get task analytics and statistics
 
 ### Users
 - `GET /api/users/me` - Get current user
@@ -240,8 +282,11 @@ vitacoin/
 - **Dashboard** - Main overview with stats and quick actions
 - **Transactions** - Transaction history with filtering
 - **Badges** - Badge collection and progression
-- **Leaderboard** - User rankings and statistics
+- **Leaderboard** - User rankings and statistics (Overall, Daily, Weekly, Monthly)
 - **Profile** - User profile management
+- **PlayGames** - Game selection and challenge viewing for regular users
+- **AdminDashboard** - Admin overview with tabs for different management areas
+- **AdminTasks** - Task creation and management for admins
 
 ## 🔒 Security Features
 

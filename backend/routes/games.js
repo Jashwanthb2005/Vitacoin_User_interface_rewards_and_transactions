@@ -40,6 +40,24 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// @desc    Get active games for users
+// @route   GET /api/games/active
+// @access  Private
+router.get('/active', protect, async (req, res) => {
+  try {
+    const games = await Game.find({ isActive: true })
+      .sort({ 'stats.totalPlays': -1 });
+
+    res.json(games);
+  } catch (error) {
+    console.error('Active games fetch error:', error);
+    res.status(500).json({ 
+      error: 'Server error fetching active games',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // @desc    Get game by ID
 // @route   GET /api/games/:id
 // @access  Private

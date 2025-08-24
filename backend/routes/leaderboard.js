@@ -1,274 +1,556 @@
 const express = require('express');
-const User = require('../models/User');
-const { protect } = require('../middleware/auth');
 const router = express.Router();
+const User = require('../models/User');
+const TaskCompletion = require('../models/TaskCompletion');
+const Game = require('../models/Game');
+const { protect } = require('../middleware/auth');
 
-// @desc    Get leaderboard
+// @desc    Get overall leaderboard
 // @route   GET /api/leaderboard
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
-    const { limit = 10, offset = 0, sortBy = 'coinBalance' } = req.query;
+    const { sortBy = 'coins', limit = 50, page = 1 } = req.query;
+    
+    const sortOptions = {
+      coins: { coinBalance: -1 },
+      experience: { experience: -1 },
+      tasks: { totalTasks: -1 },
+      badges: { totalBadges: -1 }
+    };
 
-    let sortField = 'coinBalance';
-    let sortOrder = -1;
+    const sortField = sortOptions[sortBy] || sortOptions.coins;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Validate sort field
-    const allowedSortFields = ['coinBalance', 'totalEarned', 'badgeCount', 'createdAt'];
-    if (allowedSortFields.includes(sortBy)) {
-      sortField = sortBy;
-    }
-
-    const leaderboard = await User.find({ isActive: true })
-      .select('username firstName lastName coinBalance totalEarned badges profilePicture createdAt')
-      .populate('badges', 'name icon rarity')
-      .sort({ [sortField]: sortOrder })
-      .skip(parseInt(offset))
-      .limit(parseInt(limit));
-
-    // Get user's rank
-    const userRank = await getUserRank(req.user._id, sortField, sortOrder);
+    // Get users with task completion counts
+    const users = await User.aggregate([
+      {
+        $lookup: {
+          from: 'taskcompletions',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'completions'
+        }
+      },
+      {
+        $addFields: {
+          totalTasks: { $size: '$completions' },
+          totalBadges: {
+            $size: {
+              $filter: {
+                input: '$completions',
+                cond: { $ne: ['$$this.reward.badgeId', null] }
+              }
+            }
+          },
+          experience: { $ifNull: ['$experience', 0] }
+        }
+      },
+      {
+        $sort: sortField
+      },
+      {
+        $skip: skip
+      },
+      {
+        $limit: parseInt(limit)
+      },
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          username: 1,
+          coinBalance: 1,
+          experience: 1,
+          totalTasks: 1,
+          totalBadges: 1,
+          avatar: 1,
+          level: 1
+        }
+      }
+    ]);
 
     // Get total count for pagination
-    const totalUsers = await User.countDocuments({ isActive: true });
+    const totalUsers = await User.countDocuments();
 
     res.json({
-      leaderboard,
-      userRank,
+      users,
       pagination: {
-        limit: parseInt(limit),
-        offset: parseInt(offset),
-        total: totalUsers,
-        hasMore: parseInt(offset) + parseInt(limit) < totalUsers
-      }
+        current: parseInt(page),
+        total: Math.ceil(totalUsers / parseInt(limit)),
+        hasNext: skip + users.length < totalUsers,
+        hasPrev: parseInt(page) > 1
+      },
+      sortBy
     });
   } catch (error) {
     console.error('Leaderboard fetch error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Server error fetching leaderboard',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-// @desc    Get user's rank
-// @route   GET /api/leaderboard/rank
+// @desc    Get daily leaderboard
+// @route   GET /api/leaderboard/daily
 // @access  Private
-router.get('/rank', protect, async (req, res) => {
+router.get('/daily', protect, async (req, res) => {
   try {
-    const { sortBy = 'coinBalance' } = req.query;
-
-    let sortField = 'coinBalance';
-    let sortOrder = -1;
-
-    // Validate sort field
-    const allowedSortFields = ['coinBalance', 'totalEarned', 'badgeCount', 'createdAt'];
-    if (allowedSortFields.includes(sortBy)) {
-      sortField = sortBy;
+    const { date, sortBy = 'coins' } = req.query;
+    
+    // Parse date or use today
+    let targetDate;
+    if (date) {
+      targetDate = new Date(date);
+      targetDate.setHours(0, 0, 0, 0);
+    } else {
+      targetDate = new Date();
+      targetDate.setHours(0, 0, 0, 0);
     }
 
-    const userRank = await getUserRank(req.user._id, sortField, sortOrder);
-    const totalUsers = await User.countDocuments({ isActive: true });
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const sortOptions = {
+      coins: { dailyCoins: -1 },
+      tasks: { dailyTasks: -1 },
+      experience: { dailyExperience: -1 }
+    };
+
+    const sortField = sortOptions[sortBy] || sortOptions.coins;
+
+    // Get daily task completions
+    const dailyStats = await TaskCompletion.aggregate([
+      {
+        $match: {
+          completedAt: {
+            $gte: targetDate,
+            $lt: nextDay
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$userId',
+          dailyCoins: { $sum: '$reward.coins' },
+          dailyTasks: { $sum: 1 },
+          dailyExperience: { $sum: '$reward.experience' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      {
+        $unwind: '$user'
+      },
+      {
+        $addFields: {
+          firstName: '$user.firstName',
+          lastName: '$user.lastName',
+          username: '$user.username',
+          avatar: '$user.avatar'
+        }
+      },
+      {
+        $sort: sortField
+      },
+      {
+        $limit: 50
+      }
+    ]);
 
     res.json({
-      rank: userRank,
-      totalUsers,
-      percentile: totalUsers > 0 ? Math.round(((totalUsers - userRank + 1) / totalUsers) * 100) : 0
+      date: targetDate.toISOString().split('T')[0],
+      stats: dailyStats,
+      sortBy
     });
   } catch (error) {
-    console.error('User rank fetch error:', error);
-    res.status(500).json({ 
-      error: 'Server error fetching user rank',
+    console.error('Daily leaderboard fetch error:', error);
+    res.status(500).json({
+      error: 'Server error fetching daily leaderboard',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-// @desc    Get leaderboard statistics
-// @route   GET /api/leaderboard/stats
+// @desc    Get weekly leaderboard
+// @route   GET /api/leaderboard/weekly
 // @access  Private
-router.get('/stats', protect, async (req, res) => {
+router.get('/weekly', protect, async (req, res) => {
   try {
-    // Get top 3 users
-    const topUsers = await User.find({ isActive: true })
-      .select('username firstName lastName coinBalance')
-      .sort({ coinBalance: -1 })
-      .limit(3);
+    const { week, sortBy = 'coins' } = req.query;
+    
+    // Parse week or use current week
+    let startOfWeek;
+    if (week) {
+      const [year, weekNum] = week.split('-W');
+      startOfWeek = new Date(year, 0, 1 + (weekNum - 1) * 7);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    } else {
+      startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    }
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    // Get total statistics
-    const stats = await User.aggregate([
-      { $match: { isActive: true } },
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+    const sortOptions = {
+      coins: { weeklyCoins: -1 },
+      tasks: { weeklyTasks: -1 },
+      experience: { weeklyExperience: -1 }
+    };
+
+    const sortField = sortOptions[sortBy] || sortOptions.coins;
+
+    // Get weekly task completions
+    const weeklyStats = await TaskCompletion.aggregate([
+      {
+        $match: {
+          completedAt: {
+            $gte: startOfWeek,
+            $lt: endOfWeek
+          }
+        }
+      },
       {
         $group: {
-          _id: null,
-          totalUsers: { $sum: 1 },
-          totalCoins: { $sum: '$coinBalance' },
-          totalEarned: { $sum: '$totalEarned' },
-          avgCoins: { $avg: '$coinBalance' },
-          avgEarned: { $avg: '$totalEarned' },
-          maxCoins: { $max: '$coinBalance' },
-          minCoins: { $min: '$coinBalance' }
+          _id: '$userId',
+          weeklyCoins: { $sum: '$reward.coins' },
+          weeklyTasks: { $sum: 1 },
+          weeklyExperience: { $sum: '$reward.experience' }
         }
-      }
-    ]);
-
-    // Get badge statistics
-    const badgeStats = await User.aggregate([
-      { $match: { isActive: true } },
+      },
       {
-        $group: {
-          _id: null,
-          totalBadges: { $sum: { $size: '$badges' } },
-          avgBadges: { $avg: { $size: '$badges' } },
-          maxBadges: { $max: { $size: '$badges' } }
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user'
         }
+      },
+      {
+        $unwind: '$user'
+      },
+      {
+        $addFields: {
+          firstName: '$user.firstName',
+          lastName: '$user.lastName',
+          username: '$user.username',
+          avatar: '$user.avatar'
+        }
+      },
+      {
+        $sort: sortField
+      },
+      {
+        $limit: 50
       }
     ]);
-
-    const leaderboardStats = stats[0] || {};
-    const badgeData = badgeStats[0] || {};
 
     res.json({
-      topUsers,
-      totalUsers: leaderboardStats.totalUsers || 0,
-      totalCoins: leaderboardStats.totalCoins || 0,
-      totalEarned: leaderboardStats.totalEarned || 0,
-      averageCoins: Math.round(leaderboardStats.avgCoins || 0),
-      averageEarned: Math.round(leaderboardStats.avgEarned || 0),
-      maxCoins: leaderboardStats.maxCoins || 0,
-      minCoins: leaderboardStats.minCoins || 0,
-      totalBadges: badgeData.totalBadges || 0,
-      averageBadges: Math.round(badgeData.avgBadges || 0),
-      maxBadges: badgeData.maxBadges || 0
+      week: `${startOfWeek.getFullYear()}-W${Math.ceil((startOfWeek.getDate() + startOfWeek.getDay()) / 7)}`,
+      startDate: startOfWeek.toISOString().split('T')[0],
+      endDate: new Date(endOfWeek.getTime() - 1).toISOString().split('T')[0],
+      stats: weeklyStats,
+      sortBy
     });
   } catch (error) {
-    console.error('Leaderboard stats error:', error);
-    res.status(500).json({ 
-      error: 'Server error fetching leaderboard statistics',
+    console.error('Weekly leaderboard fetch error:', error);
+    res.status(500).json({
+      error: 'Server error fetching weekly leaderboard',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-// @desc    Get users around current user
-// @route   GET /api/leaderboard/around-me
+// @desc    Get monthly leaderboard
+// @route   GET /api/leaderboard/monthly
 // @access  Private
-router.get('/around-me', protect, async (req, res) => {
+router.get('/monthly', protect, async (req, res) => {
   try {
-    const { limit = 5 } = req.query;
+    const { month, sortBy = 'coins' } = req.query;
+    
+    // Parse month or use current month
+    let startOfMonth;
+    if (month) {
+      const [year, monthNum] = month.split('-');
+      startOfMonth = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+    } else {
+      startOfMonth = new Date();
+      startOfMonth.setDate(1);
+    }
+    startOfMonth.setHours(0, 0, 0, 0);
 
-    const currentUser = await User.findById(req.user._id);
-    if (!currentUser) {
+    const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0);
+
+    const sortOptions = {
+      coins: { monthlyCoins: -1 },
+      tasks: { monthlyTasks: -1 },
+      experience: { monthlyExperience: -1 }
+    };
+
+    const sortField = sortOptions[sortBy] || sortOptions.coins;
+
+    // Get monthly task completions
+    const monthlyStats = await TaskCompletion.aggregate([
+      {
+        $match: {
+          completedAt: {
+            $gte: startOfMonth,
+            $lte: endOfMonth
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$userId',
+          monthlyCoins: { $sum: '$reward.coins' },
+          monthlyTasks: { $sum: 1 },
+          monthlyExperience: { $sum: '$reward.experience' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      {
+        $unwind: '$user'
+      },
+      {
+        $addFields: {
+          firstName: '$user.firstName',
+          lastName: '$user.lastName',
+          username: '$user.username',
+          avatar: '$user.avatar'
+        }
+      },
+      {
+        $sort: sortField
+      },
+      {
+        $limit: 50
+      }
+    ]);
+
+    res.json({
+      month: `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}`,
+      startDate: startOfMonth.toISOString().split('T')[0],
+      endDate: endOfMonth.toISOString().split('T')[0],
+      stats: monthlyStats,
+      sortBy
+    });
+  } catch (error) {
+    console.error('Monthly leaderboard fetch error:', error);
+    res.status(500).json({
+      error: 'Server error fetching monthly leaderboard',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Get game-specific leaderboard
+// @route   GET /api/leaderboard/game/:gameId
+// @access  Private
+router.get('/game/:gameId', protect, async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const { sortBy = 'score', limit = 50 } = req.query;
+
+    // Verify game exists
+    const game = await Game.findById(gameId);
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const sortOptions = {
+      score: { bestScore: -1 },
+      plays: { totalPlays: -1 },
+      wins: { totalWins: -1 }
+    };
+
+    const sortField = sortOptions[sortBy] || sortOptions.score;
+
+    // Get game statistics from users
+    const gameStats = await User.aggregate([
+      {
+        $lookup: {
+          from: 'games',
+          localField: '_id',
+          foreignField: 'userId',
+          as: 'gameStats'
+        }
+      },
+      {
+        $unwind: '$gameStats'
+      },
+      {
+        $match: {
+          'gameStats.gameId': gameId
+        }
+      },
+      {
+        $addFields: {
+          bestScore: '$gameStats.bestScore',
+          totalPlays: '$gameStats.totalPlays',
+          totalWins: '$gameStats.totalWins',
+          averageScore: '$gameStats.averageScore'
+        }
+      },
+      {
+        $sort: sortField
+      },
+      {
+        $limit: parseInt(limit)
+      },
+      {
+        $project: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          username: 1,
+          avatar: 1,
+          bestScore: 1,
+          totalPlays: 1,
+          totalWins: 1,
+          averageScore: 1
+        }
+      }
+    ]);
+
+    res.json({
+      game: {
+        id: game._id,
+        name: game.name,
+        category: game.category
+      },
+      stats: gameStats,
+      sortBy
+    });
+  } catch (error) {
+    console.error('Game leaderboard fetch error:', error);
+    res.status(500).json({
+      error: 'Server error fetching game leaderboard',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Get user's ranking and statistics
+// @route   GET /api/leaderboard/user/:userId
+// @access  Private
+router.get('/user/:userId', protect, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { period = 'overall' } = req.query;
+
+    const user = await User.findById(userId);
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Get users with similar coin balance (above and below)
-    const usersAbove = await User.find({
-      isActive: true,
-      coinBalance: { $gt: currentUser.coinBalance }
-    })
-      .select('username firstName lastName coinBalance')
-      .sort({ coinBalance: 1 })
-      .limit(parseInt(limit));
+    let userStats;
+    let ranking;
 
-    const usersBelow = await User.find({
-      isActive: true,
-      coinBalance: { $lt: currentUser.coinBalance }
-    })
-      .select('username firstName lastName coinBalance')
-      .sort({ coinBalance: -1 })
-      .limit(parseInt(limit));
+    if (period === 'daily') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Combine and sort
-    const aroundMe = [...usersAbove.reverse(), currentUser, ...usersBelow];
+      const dailyCompletions = await TaskCompletion.find({
+        userId,
+        completedAt: { $gte: today, $lt: tomorrow }
+      });
 
-    res.json({
-      users: aroundMe,
-      currentUserIndex: usersAbove.length
-    });
-  } catch (error) {
-    console.error('Around me fetch error:', error);
-    res.status(500).json({ 
-      error: 'Server error fetching users around current user',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
+      userStats = {
+        coins: dailyCompletions.reduce((sum, c) => sum + (c.reward.coins || 0), 0),
+        tasks: dailyCompletions.length,
+        experience: dailyCompletions.reduce((sum, c) => sum + (c.reward.experience || 0), 0)
+      };
 
-// @desc    Get leaderboard by category
-// @route   GET /api/leaderboard/category/:category
-// @access  Private
-router.get('/category/:category', protect, async (req, res) => {
-  try {
-    const { category } = req.params;
-    const { limit = 10, offset = 0 } = req.query;
+      // Get daily ranking
+      const dailyRanking = await TaskCompletion.aggregate([
+        {
+          $match: {
+            completedAt: { $gte: today, $lt: tomorrow }
+          }
+        },
+        {
+          $group: {
+            _id: '$userId',
+            dailyCoins: { $sum: '$reward.coins' }
+          }
+        },
+        {
+          $sort: { dailyCoins: -1 }
+        }
+      ]);
 
-    let sortField = 'coinBalance';
-    let sortOrder = -1;
-
-    // Validate category and set appropriate sort field
-    switch (category) {
-      case 'coins':
-        sortField = 'coinBalance';
-        break;
-      case 'earned':
-        sortField = 'totalEarned';
-        break;
-      case 'badges':
-        sortField = 'badgeCount';
-        break;
-      case 'newest':
-        sortField = 'createdAt';
-        sortOrder = 1;
-        break;
-      default:
-        return res.status(400).json({ error: 'Invalid category' });
-    }
-
-    const leaderboard = await User.find({ isActive: true })
-      .select('username firstName lastName coinBalance totalEarned badges profilePicture createdAt')
-      .populate('badges', 'name icon rarity')
-      .sort({ [sortField]: sortOrder })
-      .skip(parseInt(offset))
-      .limit(parseInt(limit));
-
-    // Get user's rank in this category
-    const userRank = await getUserRank(req.user._id, sortField, sortOrder);
-
-    res.json({
-      category,
-      leaderboard,
-      userRank
-    });
-  } catch (error) {
-    console.error('Category leaderboard error:', error);
-    res.status(500).json({ 
-      error: 'Server error fetching category leaderboard',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-// Helper function to get user rank
-const getUserRank = async (userId, sortField = 'coinBalance', sortOrder = -1) => {
-  try {
-    const user = await User.findById(userId);
-    if (!user) return null;
-
-    let query = { isActive: true };
-    
-    if (sortOrder === -1) {
-      query[sortField] = { $gt: user[sortField] };
+      ranking = dailyRanking.findIndex(entry => entry._id.toString() === userId) + 1;
     } else {
-      query[sortField] = { $lt: user[sortField] };
+      // Overall stats
+      const completions = await TaskCompletion.find({ userId });
+      userStats = {
+        coins: user.coinBalance,
+        tasks: completions.length,
+        experience: user.experience || 0,
+        badges: completions.filter(c => c.reward.badgeId).length
+      };
+
+      // Get overall ranking
+      const overallRanking = await User.aggregate([
+        {
+          $lookup: {
+            from: 'taskcompletions',
+            localField: '_id',
+            foreignField: 'userId',
+            as: 'completions'
+          }
+        },
+        {
+          $addFields: {
+            totalTasks: { $size: '$completions' }
+          }
+        },
+        {
+          $sort: { coinBalance: -1 }
+        }
+      ]);
+
+      ranking = overallRanking.findIndex(entry => entry._id.toString() === userId) + 1;
     }
 
-    const rank = await User.countDocuments(query);
-    return rank + 1;
+    res.json({
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+        avatar: user.avatar
+      },
+      stats: userStats,
+      ranking,
+      period
+    });
   } catch (error) {
-    console.error('Error getting user rank:', error);
-    return null;
+    console.error('User ranking fetch error:', error);
+    res.status(500).json({
+      error: 'Server error fetching user ranking',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-};
+});
 
 module.exports = router;
