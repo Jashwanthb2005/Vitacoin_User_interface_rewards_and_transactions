@@ -16,7 +16,8 @@ import {
   FiPlay,
   FiTarget,
   FiUsers,
-  FiGift
+  FiGift,
+  FiArrowLeft
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSocket } from '../../contexts/SocketContext';
@@ -72,11 +73,30 @@ const Layout = ({ children }) => {
 
       {/* Sidebar */}
       <motion.aside
-        initial={{ x: -256 }}
-        animate={{ x: sidebarOpen ? 0 : -256 }}
-        className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'} lg:translate-x-0`}
+        initial={false}
+        animate={sidebarOpen ? { x: 0 } : { x: 0 }}
+        className={`sidebar fixed top-0 left-0 h-full w-64 bg-white shadow-lg z-40 lg:static lg:translate-x-0 lg:flex lg:flex-col ${sidebarOpen ? '' : 'hidden lg:flex'}`}
       >
         <div className="flex flex-col h-full">
+          {/* Top Quick Navigation */}
+          <div className="flex items-center space-x-2 p-4 border-b border-gray-100">
+            {/* Go Back Arrow */}
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Go Back"
+            >
+              <FiArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            {/* Home Button */}
+            <button
+              onClick={() => navigate(user?.role === 'admin' ? '/admin' : '/dashboard')}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Home"
+            >
+              <FiHome className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
           {/* Logo */}
           <div className="flex items-center justify-between p-6 border-b border-gray-100">
             <Link to="/dashboard" className="flex items-center space-x-3">

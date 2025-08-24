@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../../components/UI/LoadingSpinner';
 import GamePlayer from '../../components/Games/GamePlayer';
+import gameImages from '../../assets/gameImages';
 
 const PlayGames = () => {
   const { user, logout } = useAuth();
@@ -309,11 +310,16 @@ const PlayGames = () => {
                   onClick={() => handleGameSelect(game)}
                 >
                   <div className="relative overflow-hidden rounded-t-2xl">
-                    <img
-                      src={game.thumbnail || '/default-game-thumbnail.jpg'}
+                    {/* Custom thumbnails for each game by ID. Update 'gameImages.js' to change images. */}
+                    {/* <img
+                      src={
+                        game.thumbnail
+                          ? game.thumbnail
+                          :gameImages[game._id] || gameImages[game.id] || "/images/reaction-time.jpg"
+                      }
                       alt={game.name}
                       className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    /> */}
                     <div className="absolute top-2 right-2">
                       <span className={`badge badge-${game.difficulty}`}>
                         {game.difficulty}
