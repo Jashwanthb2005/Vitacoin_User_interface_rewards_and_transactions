@@ -184,6 +184,10 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'UPDATE_BALANCE', payload: { newBalance } });
   };
 
+  const updateUser = (userData) => {
+    dispatch({ type: 'UPDATE_USER', payload: userData });
+  };
+
   const value = {
     user: state.user,
     token: state.token,
@@ -194,7 +198,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateProfile,
     changePassword,
-    updateBalance
+    updateBalance,
+    updateUser
   };
 
   return (

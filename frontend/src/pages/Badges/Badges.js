@@ -7,6 +7,8 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner';
 const Badges = () => {
   const [badges, setBadges] = useState([]);
   const [userBadges, setUserBadges] = useState([]);
+  const [badgeProgress, setBadgeProgress] = useState([]);
+  const [recommendedBadges, setRecommendedBadges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     category: '',
@@ -20,13 +22,17 @@ const Badges = () => {
   const fetchBadges = async () => {
     try {
       setLoading(true);
-      const [badgesRes, userBadgesRes] = await Promise.all([
+      const [badgesRes, userBadgesRes, progressRes, recommendedRes] = await Promise.all([
         axios.get('/api/badges'),
-        axios.get('/api/badges/user')
+        axios.get('/api/badges/user'),
+        axios.get('/api/badges/progress'),
+        axios.get('/api/badges/recommended')
       ]);
 
       setBadges(badgesRes.data);
       setUserBadges(userBadgesRes.data.badges);
+      setBadgeProgress(progressRes.data.progress);
+      setRecommendedBadges(recommendedRes.data.recommended);
     } catch (error) {
       console.error('Error fetching badges:', error);
     } finally {
@@ -36,6 +42,19 @@ const Badges = () => {
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleRefreshBadges = async () => {
+    try {
+      setLoading(true);
+      // Check for new badges
+      await axios.post('/api/badges/check');
+      
+      // Refresh all badge data
+      await fetchBadges();
+    } catch (error) {
+      console.error('Error refreshing badges:', error);
+    }
   };
 
   const getRarityColor = (rarity) => {
@@ -102,6 +121,13 @@ const Badges = () => {
               </div>
               <div className="text-sm text-gray-500">Total</div>
             </div>
+            <button
+              onClick={handleRefreshBadges}
+              className="btn-primary px-4 py-2 text-sm"
+              disabled={loading}
+            >
+              {loading ? 'Checking...' : 'Check for New Badges'}
+            </button>
           </div>
         </div>
       </div>
@@ -158,6 +184,64 @@ const Badges = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Recommended Badges */}
+      {recommendedBadges.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="card"
+        >
+          <div className="card-header">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <FiAward className="w-5 h-5 mr-2 text-primary-600" />
+              Recommended for You
+            </h3>
+            <p className="text-sm text-gray-600">Badges you're close to earning</p>
+          </div>
+          <div className="card-body">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recommendedBadges.slice(0, 6).map((badge, index) => (
+                <motion.div
+                  key={badge._id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="bg-gradient-to-br from-primary-50 to-primary-100 border border-primary-200 rounded-lg p-4"
+                >
+                  <div className="text-center mb-3">
+                    <div className="text-2xl mb-2">{badge.icon}</div>
+                    <h4 className="font-semibold text-gray-900 text-sm">{badge.name}</h4>
+                    <p className="text-xs text-gray-600 mt-1">{badge.description}</p>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                      <span>Progress</span>
+                      <span>{badge.progressPercentage}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${badge.progressPercentage}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 text-center">
+                      {badge.progress} / {badge.maxProgress}
+                    </div>
+                  </div>
+
+                  <div className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getRarityColor(badge.rarity)}`}>
+                    {badge.rarity.charAt(0).toUpperCase() + badge.rarity.slice(1)}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Badges Grid */}
       <motion.div
@@ -228,6 +312,41 @@ const Badges = () => {
                         {badge.requirements.loginStreak > 0 && (
                           <div>{badge.requirements.loginStreak} day login streak</div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Progress Bar for Unearned Badges */}
+                    {!hasBadge(badge._id) && (
+                      <div className="mt-3">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>Progress</span>
+                          <span>
+                            {(() => {
+                              const progress = badgeProgress.find(p => p.badge._id === badge._id);
+                              return progress ? `${progress.progressPercentage}%` : '0%';
+                            })()}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-300"
+                            style={{ 
+                              width: (() => {
+                                const progress = badgeProgress.find(p => p.badge._id === badge._id);
+                                return progress ? `${progress.progressPercentage}%` : '0%';
+                              })()
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 text-center">
+                          {(() => {
+                            const progress = badgeProgress.find(p => p.badge._id === badge._id);
+                            if (progress) {
+                              return `${progress.progress} / ${progress.maxProgress}`;
+                            }
+                            return '0 / 1';
+                          })()}
+                        </div>
                       </div>
                     )}
 

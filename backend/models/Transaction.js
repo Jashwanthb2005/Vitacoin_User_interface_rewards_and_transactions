@@ -48,6 +48,7 @@ const transactionSchema = new mongoose.Schema({
       'admin_penalty',
       'system_bonus',
       'event_reward',
+      'coupon_redemption',
       'other'
     ],
     default: 'other'

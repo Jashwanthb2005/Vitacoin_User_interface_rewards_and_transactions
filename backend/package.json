@@ -9,9 +9,17 @@
     "test": "jest",
     "create-admin": "node scripts/createAdmin.js",
     "seed": "node seedAll.js",
+    "seed-badges": "node seedBadges.js",
     "seed-tasks": "node seedTasks.js",
     "seed-games": "node seedGames.js",
-    "seed-challenges": "node seedChallenges.js"
+    "seed-challenges": "node seedChallenges.js",
+    "test-badges": "node testBadges.js",
+    "test-system": "node testBadgeSystem.js",
+    "test-wallet": "node testWallet.js",
+    "test-stats": "node testTransactionStats.js",
+    "test-admin": "node testAdminLogin.js",
+    "reset-admin": "node scripts/resetAdmin.js",
+    "recreate-admin": "node scripts/recreateAdmin.js"
   },
   "dependencies": {
     "express": "^4.18.2",

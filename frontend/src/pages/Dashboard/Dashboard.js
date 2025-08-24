@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiTrendingUp, FiAward, FiDollarSign, FiActivity, FiPlay, FiMinus, FiLogOut } from 'react-icons/fi';
+import { FiTrendingUp, FiAward, FiDollarSign, FiActivity, FiPlay, FiMinus, FiLogOut, FiGift } from 'react-icons/fi';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -13,12 +13,32 @@ const Dashboard = () => {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user, logout } = useAuth();
-  const { emit } = useSocket();
+  const { emit, socket } = useSocket();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Listen for real-time updates
+  useEffect(() => {
+    if (socket) {
+      // Listen for balance updates
+      socket.on('balance_updated', () => {
+        fetchDashboardData();
+      });
+
+      // Listen for transaction updates
+      socket.on('transactions_data', () => {
+        fetchDashboardData();
+      });
+
+      return () => {
+        socket.off('balance_updated');
+        socket.off('transactions_data');
+      };
+    }
+  }, [socket]);
 
   const fetchDashboardData = async () => {
     try {
@@ -35,6 +55,11 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Refresh dashboard data
+  const refreshDashboard = () => {
+    fetchDashboardData();
   };
 
   const handleQuickEarn = async () => {
@@ -57,10 +82,14 @@ const Dashboard = () => {
 
   const getTransactionIcon = (type) => {
     switch (type) {
-      case 'earning':
-        return <FiTrendingUp className="w-5 h-5 text-success-600" />;
-      case 'deduction':
-        return <FiTrendingUp className="w-5 h-5 text-danger-600 rotate-180" />;
+      case 'earn':
+      case 'bonus':
+        return <FiTrendingUp className="w-5 h-5 text-green-600" />;
+      case 'deduct':
+      case 'penalty':
+        return <FiMinus className="w-5 h-5 text-red-600" />;
+      case 'transfer':
+        return <FiActivity className="w-5 h-5 text-blue-600" />;
       default:
         return <FiActivity className="w-5 h-5 text-gray-600" />;
     }
@@ -68,13 +97,36 @@ const Dashboard = () => {
 
   const getTransactionColor = (type) => {
     switch (type) {
-      case 'earning':
-        return 'text-success-600';
-      case 'deduction':
-        return 'text-danger-600';
+      case 'earn':
+      case 'bonus':
+        return 'text-green-600';
+      case 'deduct':
+      case 'penalty':
+        return 'text-red-600';
+      case 'transfer':
+        return 'text-blue-600';
       default:
         return 'text-gray-600';
     }
+  };
+
+  const getTransactionSign = (type) => {
+    switch (type) {
+      case 'earn':
+      case 'bonus':
+        return '+';
+      case 'deduct':
+      case 'penalty':
+        return '-';
+      default:
+        return '';
+    }
+  };
+
+  const formatTransactionAmount = (transaction) => {
+    const amount = Math.abs(transaction.amount);
+    const sign = getTransactionSign(transaction.type);
+    return `${sign}${amount}`;
   };
 
   if (loading) {
@@ -134,13 +186,23 @@ const Dashboard = () => {
         </div>
 
         <div className="stats-card">
-          <div className="stats-icon">
-            <FiTrendingUp className="w-6 h-6" />
+          <div className="stats-icon bg-green-100">
+            <FiTrendingUp className="w-6 h-6 text-green-600" />
           </div>
           <div className="stats-value">
             <CoinDisplay balance={stats?.totalEarned || 0} size="sm" />
           </div>
           <div className="stats-label">Total Earned</div>
+        </div>
+
+        <div className="stats-card">
+          <div className="stats-icon bg-red-100">
+            <FiMinus className="w-6 h-6 text-red-600" />
+          </div>
+          <div className="stats-value">
+            <CoinDisplay balance={Math.abs(stats?.totalDeducted || 0)} size="sm" />
+          </div>
+          <div className="stats-label">Total Spent</div>
         </div>
 
         <div className="stats-card">
@@ -194,16 +256,91 @@ const Dashboard = () => {
                   View Challenges
                 </motion.button>
               </Link>
+              <Link to="/coupons" className="flex-1">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="btn-warning w-full"
+                >
+                  <FiGift className="w-5 h-5 mr-2" />
+                  Spend Vitacoins
+                </motion.button>
+              </Link>
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* Recent Transactions */}
+      {/* Transaction Summary */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
+        className="card"
+      >
+        <div className="card-header">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Transaction Summary</h2>
+              <p className="text-gray-600">Your earning and spending overview</p>
+            </div>
+            <button
+              onClick={refreshDashboard}
+              className="btn-outline btn-sm"
+              title="Refresh data"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div className="card-body">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600">Total Earned</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    <CoinDisplay balance={stats?.totalEarned || 0} size="lg" />
+                  </p>
+                </div>
+                <FiTrendingUp className="w-8 h-8 text-green-500" />
+              </div>
+            </div>
+            
+            <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-600">Total Spent</p>
+                  <p className="text-2xl font-bold text-red-700">
+                    <CoinDisplay balance={Math.abs(stats?.totalDeducted || 0)} size="lg" />
+                  </p>
+                </div>
+                <FiMinus className="w-8 h-8 text-red-500" />
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600">Net Balance</p>
+                  <p className="text-2xl font-bold text-blue-700">
+                    <CoinDisplay balance={user?.coinBalance || 0} size="lg" />
+                  </p>
+                </div>
+                <FiDollarSign className="w-8 h-8 text-blue-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Recent Transactions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
         className="card"
       >
         <div className="card-header">
@@ -228,17 +365,22 @@ const Dashboard = () => {
                     <div>
                       <p className="font-semibold text-gray-900">{transaction.description}</p>
                       <p className="text-sm text-gray-500">
-                        {new Date(transaction.createdAt).toLocaleDateString()} • {transaction.category}
+                        {new Date(transaction.createdAt).toLocaleDateString()} • {transaction.category.replace('_', ' ')}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className={`font-bold text-lg ${getTransactionColor(transaction.type)}`}>
-                      {transaction.type === 'earning' ? '+' : '-'}
-                      <CoinDisplay balance={transaction.amount} size="sm" />
+                      {formatTransactionAmount(transaction)} coins
                     </p>
                     <p className="text-sm text-gray-500">
                       Balance: <CoinDisplay balance={transaction.balanceAfter} size="xs" />
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(transaction.createdAt).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
                     </p>
                   </div>
                 </motion.div>
@@ -248,7 +390,17 @@ const Dashboard = () => {
             <div className="p-8 text-center">
               <FiActivity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">No transactions yet</p>
-              <p className="text-sm text-gray-400">Start earning coins to see your activity here</p>
+              <p className="text-sm text-gray-400">Complete challenges, play games, or redeem coupons to see your activity here</p>
+              <div className="mt-4 flex justify-center space-x-4">
+                <Link to="/challenges" className="btn-primary btn-sm">
+                  <FiAward className="w-4 h-4 mr-2" />
+                  View Challenges
+                </Link>
+                <Link to="/play-games" className="btn-success btn-sm">
+                  <FiPlay className="w-4 h-4 mr-2" />
+                  Play Games
+                </Link>
+              </div>
             </div>
           )}
         </div>
@@ -268,7 +420,7 @@ const Dashboard = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
+        transition={{ delay: 0.6 }}
         className="card"
       >
         <div className="card-header">

@@ -66,6 +66,16 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['user', 'admin', 'moderator'],
     default: 'user'
+  },
+  tasksCompleted: {
+    type: Number,
+    default: 0,
+    min: [0, 'Tasks completed cannot be negative']
+  },
+  loginStreak: {
+    type: Number,
+    default: 0,
+    min: [0, 'Login streak cannot be negative']
   }
 }, {
   timestamps: true,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiUser, FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
@@ -14,8 +14,19 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
+
+  // Handle redirect after successful login
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [user, navigate]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -41,10 +52,8 @@ const Login = () => {
 
     setLoading(true);
     try {
-      const result = await login(formData.email, formData.password);
-      if (result.success) {
-        navigate('/dashboard');
-      }
+      await login(formData.email, formData.password);
+      // Redirect is handled by useEffect when user state updates
     } catch (error) {
       console.error('Login error:', error);
     } finally {

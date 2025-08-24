@@ -12,6 +12,8 @@ import Profile from './pages/Profile/Profile';
 import Challenges from './pages/Challenges/Challenges';
 import PlayGames from './pages/Games/PlayGames';
 import AdminDashboard from './pages/Admin/AdminDashboard';
+import Coupons from './pages/Coupons/Coupons';
+import MyCoupons from './pages/Coupons/MyCoupons';
 import LoadingSpinner from './components/UI/LoadingSpinner';
 
 // Protected Route Component
@@ -33,7 +35,41 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Public Route Component (redirects to dashboard if already logged in)
+// Role-based redirect component
+const RoleBasedRedirect = () => {
+  const { user } = useAuth();
+  
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  } else {
+    return <Navigate to="/dashboard" replace />;
+  }
+};
+
+// Admin Route Component (only accessible to admin users)
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// Public Route Component (redirects to appropriate dashboard if already logged in)
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -46,7 +82,12 @@ const PublicRoute = ({ children }) => {
   }
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    // Redirect based on user role
+    if (user.role === 'admin') {
+      return <Navigate to="/admin" replace />;
+    } else {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return children;
@@ -79,7 +120,7 @@ function App() {
           path="/" 
           element={
             <ProtectedRoute>
-              <Navigate to="/dashboard" replace />
+              <RoleBasedRedirect />
             </ProtectedRoute>
           } 
         />
@@ -154,13 +195,33 @@ function App() {
           } 
         />
         <Route 
-          path="/admin" 
+          path="/coupons" 
           element={
             <ProtectedRoute>
               <Layout>
-                <AdminDashboard />
+                <Coupons />
               </Layout>
             </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/my-coupons" 
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <MyCoupons />
+              </Layout>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <AdminRoute>
+              <Layout>
+                <AdminDashboard />
+              </Layout>
+            </AdminRoute>
           } 
         />
 
@@ -174,7 +235,7 @@ function App() {
                   <div className="text-center">
                     <h1 className="text-6xl font-bold text-gray-300 mb-4">404</h1>
                     <p className="text-xl text-gray-600 mb-8">Page not found</p>
-                    <Navigate to="/dashboard" replace />
+                    <RoleBasedRedirect />
                   </div>
                 </div>
               </Layout>

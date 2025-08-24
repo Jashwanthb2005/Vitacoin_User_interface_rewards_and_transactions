@@ -313,4 +313,65 @@ router.get('/rarities', protect, async (req, res) => {
   }
 });
 
+// @desc    Get user badge progress
+// @route   GET /api/badges/progress
+// @access  Private
+router.get('/progress', protect, async (req, res) => {
+  try {
+    const BadgeService = require('../services/badgeService');
+    const progress = await BadgeService.getUserBadgeProgress(req.user._id);
+    
+    if (!progress) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ progress });
+  } catch (error) {
+    console.error('Badge progress fetch error:', error);
+    res.status(500).json({ 
+      error: 'Server error fetching badge progress',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Get recommended badges for user
+// @route   GET /api/badges/recommended
+// @access  Private
+router.get('/recommended', protect, async (req, res) => {
+  try {
+    const BadgeService = require('../services/badgeService');
+    const recommended = await BadgeService.getRecommendedBadges(req.user._id);
+    
+    res.json({ recommended });
+  } catch (error) {
+    console.error('Recommended badges fetch error:', error);
+    res.status(500).json({ 
+      error: 'Server error fetching recommended badges',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// @desc    Check and award badges for user
+// @route   POST /api/badges/check
+// @access  Private
+router.post('/check', protect, async (req, res) => {
+  try {
+    const BadgeService = require('../services/badgeService');
+    await BadgeService.checkAllBadges(req.user._id);
+    
+    res.json({ 
+      message: 'Badge check completed successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Badge check error:', error);
+    res.status(500).json({ 
+      error: 'Server error checking badges',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 module.exports = router;

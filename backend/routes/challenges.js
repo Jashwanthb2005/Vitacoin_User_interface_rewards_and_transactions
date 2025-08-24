@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Challenge = require('../models/Challenge');
 const UserChallenge = require('../models/UserChallenge');
+const User = require('../models/User'); // Add this import
 const Game = require('../models/Game');
 const { protect, adminOrModerator } = require('../middleware/auth');
 const router = express.Router();
@@ -248,40 +249,152 @@ router.get('/user/progress', protect, async (req, res) => {
 // @access  Private
 router.post('/:id/start', protect, async (req, res) => {
   try {
+    const { userId } = req.body;
+    
+    const challenge = await Challenge.findById(req.params.id);
+    if (!challenge || !challenge.isActive) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Challenge not found or inactive' 
+      });
+    }
+
+    // Check if user already has an active challenge
+    const existingUserChallenge = await UserChallenge.findOne({
+      user: userId,
+      challenge: challenge._id,
+      status: 'active'
+    });
+
+    if (existingUserChallenge) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'You already have an active challenge' 
+      });
+    }
+
+    // Create or update user challenge record
+    await UserChallenge.findOneAndUpdate(
+      {
+        user: userId,
+        challenge: challenge._id
+      },
+      {
+        status: 'active',
+        startTime: new Date(),
+        attempts: 1
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Challenge started successfully',
+      challenge: {
+        id: challenge._id,
+        title: challenge.title,
+        timeLimit: challenge.requirements?.timeLimit || 300
+      }
+    });
+  } catch (error) {
+    console.error('Error starting challenge:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to start challenge' 
+    });
+  }
+});
+
+// @desc    Complete challenge
+// @route   POST /api/challenges/:id/complete
+// @access  Private
+router.post('/:id/complete', protect, async (req, res) => {
+  try {
+    const { score, time, accuracy } = req.body;
+    
     const challenge = await Challenge.findById(req.params.id);
     if (!challenge || !challenge.isActive) {
       return res.status(404).json({ error: 'Challenge not found or inactive' });
     }
 
-    // Check if user can start the challenge
+    // Get user's challenge progress
     const userChallenge = await UserChallenge.findOne({
       user: req.user._id,
       challenge: challenge._id
     });
 
-    if (userChallenge && userChallenge.status === 'completed') {
-      return res.status(400).json({ error: 'Challenge already completed' });
+    if (!userChallenge || userChallenge.status !== 'active') {
+      return res.status(400).json({ error: 'Challenge not started or already completed' });
     }
 
-    // Create or update user challenge
-    const updatedUserChallenge = await UserChallenge.findOneAndUpdate(
-      { user: req.user._id, challenge: challenge._id },
+    // Calculate time elapsed since challenge start
+    const timeElapsed = Math.floor((Date.now() - userChallenge.startTime.getTime()) / 1000);
+    
+    // Check if challenge was completed within time limit
+    const timeLimit = challenge.requirements?.timeLimit || 300; // Default 5 minutes
+    const isTimeValid = timeElapsed <= timeLimit;
+    
+    // Check if score meets requirements
+    const minScore = challenge.requirements?.minScore || 0;
+    const isScoreValid = score >= minScore;
+    
+    // Determine if challenge is successfully completed
+    const isSuccessful = isTimeValid && isScoreValid;
+    
+    // Update user challenge
+    const updatedUserChallenge = await UserChallenge.findByIdAndUpdate(
+      userChallenge._id,
       {
-        status: 'in_progress',
-        startedAt: new Date(),
-        lastAttemptAt: new Date()
+        status: isSuccessful ? 'completed' : 'failed',
+        attempts: userChallenge.attempts + 1,
+        bestScore: Math.max(userChallenge.bestScore, score),
+        bestTime: isSuccessful ? timeElapsed : userChallenge.bestTime,
+        completionDate: isSuccessful ? new Date() : null,
+        lastAttemptAt: new Date(),
+        'gameSessions.$[].score': score,
+        'gameSessions.$[].time': timeElapsed,
+        'gameSessions.$[].accuracy': accuracy,
+        'gameSessions.$[].date': new Date()
       },
-      { new: true, upsert: true }
-    ).populate('challenge');
+      { new: true }
+    );
+
+    // If successful, award rewards
+    let rewards = { coinsEarned: 0, experienceEarned: 0 };
+    
+    if (isSuccessful) {
+      // Award challenge rewards
+      rewards.coinsEarned = challenge.rewards.coins || 0;
+      rewards.experienceEarned = challenge.rewards.experience || 0;
+      
+      // Update user's coin balance and experience
+      const user = await User.findById(req.user._id);
+      user.coinBalance += rewards.coinsEarned;
+      user.experience += rewards.experienceEarned;
+      await user.save();
+      
+      // Update user challenge with rewards
+      updatedUserChallenge.rewards = rewards;
+      await updatedUserChallenge.save();
+    }
 
     res.json({
+      success: isSuccessful,
       userChallenge: updatedUserChallenge,
-      message: 'Challenge started successfully'
+      timeElapsed,
+      timeLimit,
+      isTimeValid,
+      isScoreValid,
+      rewards,
+      message: isSuccessful 
+        ? `Challenge completed successfully! Earned ${rewards.coinsEarned} coins and ${rewards.experienceEarned} XP`
+        : `Challenge failed. Time: ${timeElapsed}s/${timeLimit}s, Score: ${score}/${minScore}`
     });
+
   } catch (error) {
-    console.error('Challenge start error:', error);
+    console.error('Challenge completion error:', error);
     res.status(500).json({ 
-      error: 'Server error starting challenge',
+      error: 'Server error completing challenge',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
